@@ -32,7 +32,8 @@ type_token key_words[] = {
     {EQUAL, "==",0},
     {NE, "!=",0},
     {GE, ">=",0},
-    {LE, "<=",0}
+    {LE, "<=",0},
+    {RETURN, "return", 0}
 };
 
 

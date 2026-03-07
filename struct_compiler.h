@@ -47,6 +47,7 @@
 #define CHAR 267
 #define BEGIN 268
 #define END 269
+#define RETURN 274
 
 //Operadores
 #define ASSIGN '='

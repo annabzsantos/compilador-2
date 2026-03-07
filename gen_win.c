@@ -137,8 +137,9 @@ void gen_epilog_code(void) {
  * @brief Gera codigo para o comando READ
  * 
  * @param lexeme_of_id nome do identificador
+ * @param type tipo da variavel
  */
-void gen_read(char *lexeme_of_id) {
+void gen_read(char *lexeme_of_id, int type) {
     fprintf(output_file, "mov rcx, fmtstr0\n");
     fprintf(output_file, "mov rdx, %s\n", lexeme_of_id);
     fprintf(output_file, "mov rax, 0\n");
@@ -149,8 +150,9 @@ void gen_read(char *lexeme_of_id) {
  * @brief Gera codigo para o comando WRITE
  * 
  * @param lexeme_of_id nome do identificador
+ * @param type tipo da variavel
  */
-void gen_write(char *lexeme_of_id) {
+void gen_write(char *lexeme_of_id, int type) {
     fprintf(output_file, "xor rdx, rdx\n");
     fprintf(output_file, "mov edx, dword [REL %s]\n", lexeme_of_id);
     fprintf(output_file, "mov rcx, fmtstr0\n");
