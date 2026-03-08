@@ -28,6 +28,7 @@ struct st_symbol_table_entry {
     int type;
     char name[MAX_TOKSZ];
     int addr;
+    int is_global; // flag para indicar se a variavel e global ou local (1 = global, 0 = local)
 };
 typedef struct st_symbol_table_entry type_symbol_table_entry;
 

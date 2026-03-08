@@ -81,9 +81,19 @@ void genNum(char num_string[MAX_TOKEN]) {
  * @param char* nome da variavel
  */
 void gen_assign(char *var_name){
-    fprintf(output_file, ";Atribuicao\n");
-    fprintf(output_file, "pop rax\n");
-    fprintf(output_file, "mov [%s], eax\n", var_name);
+    type_symbol_table_entry *sym = sym_find_any(var_name);
+    if (sym == NULL) {
+        printf("[ERRO] Variavel '%s' nao declarada.\n", var_name);
+        return;
+    }
+    fprintf(output_file, ";Atribuicao para variavel '%s'\n", var_name);
+    fprintf(output_file, "pop rax\n"); // valor a ser atribuido esta no topo da pilha
+
+    if(sym -> is_global) {
+        fprintf(output_file, "mov [%s], eax\n", sym->name); // Acessa a variável global pelo nome
+    } else {
+        fprintf(output_file, " mov dword [rbp - %d], eax\n", sym->addr); 
+    }
 }
 
 /**
@@ -378,9 +388,24 @@ void gen_func_arg(int arg_index) {
 void gen_call(char *label, char *result_var) {
     fprintf(output_file, ";Chamada de funcao\n");
     fprintf(output_file, "call %s\n", label);
+
     if (result_var != NULL) {
-        fprintf(output_file, ";Captura valor de retorno\n");
-        fprintf(output_file, "mov %s, eax\n", result_var);
+        type_symbol_table_entry *sym = sym_find_any(result_var);
+        
+        if (sym != NULL) {
+            fprintf(output_file, ";Captura valor de retorno (RAX) para '%s'\n", result_var);
+            
+            if (sym->is_global) {
+                // Se for global, usa o nome diretamente
+                fprintf(output_file, "mov dword [%s], eax\n", sym->name);
+            } else {
+                // REQUISITO 1.1: Se for local, usa o deslocamento do Frame Pointer
+                fprintf(output_file, "mov dword [rbp - %d], eax\n", sym->addr);
+            }
+        } else {
+            // REQUISITO 3: Verificação de variável não declarada
+            printf("[ERRO] Variavel de destino '%s' nao declarada.\n", result_var);
+        }
     }
 }
 
@@ -419,7 +444,18 @@ void gen_return(void) {
  * @brief Regra de derivação para implementação de funções
  */
 void gen_id_value(char *id_name) {
-    fprintf(output_file, ";Carrega valor de variavel\n");
-    fprintf(output_file, "mov eax, dword [%s]\n", id_name);
+    type_symbol_table_entry *sym = sym_find_any(id_name);
+    if (sym == NULL) {
+        printf("[ERRO] Variavel '%s' nao declarada.\n", id_name);
+        return;
+    }
+    if (sym->is_global) {
+        fprintf(output_file, ";Carrega valor de variavel global\n");
+        fprintf(output_file, "mov eax, dword [%s]\n", id_name);
+    } else {
+        // REQUISITO 1.1: Se for local, usa o deslocamneto do Frame Poiter (RBP)
+        fprintf(output_file, ";Carrega valor de variavel local\n");
+        fprintf(output_file, "mov eax, dword [rbp - %d]\n", sym->addr);
+    }
     fprintf(output_file, "push rax\n");
 }

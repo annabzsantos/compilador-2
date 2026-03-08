@@ -45,13 +45,13 @@ int 0x80
 movzx eax, byte [buffer_io]
 sub eax, 48
 mov dword [y], eax
-;Carrega valor de variavel
+;Carrega valor de variavel global
 mov eax, dword [x]
 push rax
 ;Passa argumento 1 para chamada de funcao
 pop rax
 mov r8, rax
-;Carrega valor de variavel
+;Carrega valor de variavel global
 mov eax, dword [y]
 push rax
 ;Passa argumento 2 para chamada de funcao
@@ -80,17 +80,8 @@ func_calcula:
 push rbp
 mov rbp, rsp
 sub rsp, 64
-;Carrega valor de variavel
-mov eax, dword [a]
-push rax
-;Atribuicao
-pop rax
-mov [r], eax
-;Carrega valor de variavel
-mov eax, dword [r]
-push rax
-;Comando return
-pop rax
+mov dword [rbp - 4], r8d
+mov dword [rbp - 8], r9d
 
 ;Epilogo da funcao
 mov rsp, rbp
