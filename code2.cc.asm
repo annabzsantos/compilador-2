@@ -45,13 +45,6 @@ int 0x80
 movzx eax, byte [buffer_io]
 sub eax, 48
 mov dword [y], eax
-
-;escreve valor string
-mov edx,16
-mov ecx,str2
-mov ebx,1
-mov eax,4
-int 0x80
 ;Carrega valor de variavel
 mov eax, dword [x]
 push rax
@@ -67,11 +60,14 @@ mov r9, rax
 ;Chamada de funcao
 call func_calcula
 
-;escreve valor string
-mov edx,16
-mov ecx,str3
-mov ebx,1
-mov eax,4
+; --- escreve valor inteiro ---
+mov eax, dword [resultado]
+add eax, 48
+mov byte [buffer_io], al
+mov edx, 1
+mov ecx, buffer_io
+mov ebx, 1
+mov eax, 4
 int 0x80
 
 ;encerra programa
@@ -85,36 +81,16 @@ push rbp
 mov rbp, rsp
 sub rsp, 64
 ;Carrega valor de variavel
-mov eax, dword [x]
-push rax
-;Carrega valor de variavel
-mov eax, dword [y]
-push rax
-;Adicao
-pop rax
-pop rbx
-add rax,rbx
+mov eax, dword [a]
 push rax
 ;Atribuicao
 pop rax
-mov [x], eax
-
-;escreve valor string
-mov edx,16
-mov ecx,str4
-mov ebx,1
-mov eax,4
-int 0x80
-
-; --- escreve valor inteiro ---
-mov eax, dword [x]
-add eax, 48
-mov byte [buffer_io], al
-mov edx, 1
-mov ecx, buffer_io
-mov ebx, 1
-mov eax, 4
-int 0x80
+mov [r], eax
+;Carrega valor de variavel
+mov eax, dword [r]
+push rax
+;Comando return
+pop rax
 
 ;Epilogo da funcao
 mov rsp, rbp
@@ -125,8 +101,6 @@ ret
 buffer_io db 0, 0
 x: dd 0
 y: dd 0
+resultado: dd 0
 str0: db "Informe o valor de X:"
 str1: db "\nInforme o valor de Y:"
-str2: db "\nChamando a funcao...\n"
-str3: db "\nDe volta ao programa principal!"
-str4: db "Resultado de X + Y dentro da funcao: "

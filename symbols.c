@@ -1,4 +1,5 @@
 #include "symbols.h"
+#include <stdlib.h>
 
 extern int nstringconsts;
 int sympos = 0;
@@ -11,6 +12,9 @@ type_symbol_table_variables global_symbol_table_variables;
 type_symbol_table_string symbol_table_string;
 type_symbol_function symfuncs[MAX_FUNCS];
  
+
+// ponteiro para a TSL ativa (NULL quando no escopo global)
+type_symbol_table_variables *current_local_table = NULL;
 
 /**
  * @brief Busca pelo simbolo na tabela de variaveis
@@ -28,6 +32,26 @@ type_symbol_table_entry *sym_find(char *s, type_symbol_table_variables *stv) {
 		}
 	}
 	return symbol;
+}
+
+/**
+ * @brief busca pelo simbolo primeiro na TSL ativa, depois na TSG
+ * 
+ * @param s nome do simbolo
+ * @return type_symbol_table_entry* 
+ */
+type_symbol_table_entry *sym_find_any(char *s){
+    type_symbol_table_entry *found = NULL;
+    // busca na TSL ativa primeiro (shadowing: local sobrescreve global)
+    if (current_local_table != NULL) {
+        found = sym_find(s, current_local_table);
+        if (found != NULL) {
+            return found;
+        }
+    }
+
+    // busca na TSG
+    return sym_find(s, &global_symbol_table_variables);
 }
 
 /**
@@ -156,6 +180,10 @@ type_symbol_function *sym_func_declare(char *name, int return_type, type_param *
     // Gera label
     sprintf(f->label, "func_%s", name);
 
+    // inicializa campos novos
+    f->local_table = NULL; // TSL ainda nao criada
+    f->implemented = 0; // ainda nao implementada
+
     symfuncspos++;
 
     return f;
@@ -192,6 +220,43 @@ void initSymbolTableString() {
     for (i = 0; i < MAX_SYMBOLS; i++) {
         strcpy(symbol_table_string.string[i].name, "");
         strcpy(symbol_table_string.string[i].value, "");
+    }
+}
+
+/**
+ * @brief cria e iniciliza uma nova TSL dinamicamente
+ * 
+ * @return type_symbol_table_variables*
+ */
+type_symbol_table_variables *sym_create_local_table(){
+    type_symbol_table_variables *tsl = (type_symbol_table_variables *) malloc(sizeof(type_symbol_table_variables));
+    if (tsl == NULL) {
+        printf("[ERRO] Falha ao alocar TSL.\n");
+        return NULL;
+    }
+    initSymbolTableVariables(tsl);
+    return tsl;
+}
+
+/**
+ * @brief libera a memoria de uma TSL alocada dinamicamente
+ * @param tsl
+ */
+void sym_free_local_table(type_symbol_table_variables *tsl) {
+    if (tsl != NULL) {
+        free(tsl);
+    }
+}
+
+/**
+ * @brief verifica se ha funcoes declaradas mas nao implementadas
+ */
+void sem_check_unimplemented_functions() {
+    int i;
+    for (i = 0; i < symfuncspos; i++) {
+        if (!symfuncs[i].implemented) {
+            printf("[ERRO SEMANTICO] Funcao '%s' declarada mas nao implementada.\n", symfuncs[i].name);
+        }
     }
 }
 

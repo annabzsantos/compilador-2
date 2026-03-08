@@ -48,6 +48,7 @@ int statement(void);
 void func_code(void);
 int func_implementation(void);
 int func_call(void);
+int local_declaration(void); // declara de variavel local (TSL)
 
 int B(void);
 int boolOperator(int*);

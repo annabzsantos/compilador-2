@@ -49,6 +49,7 @@ void program (void) {
     func_code(); // Gera o codigo das funcoes
     gen_data_section(); // Gera a secao de dados (variaveis globais e strings)
     printSTFunctions();
+    sem_check_unimplemented_functions();
 
 }
 
@@ -99,27 +100,20 @@ int declaration(void) {
                 char param_name[MAX_CHAR];
                 strcpy(param_name, lookahead->lexema);
                 match(ID);
-                // Declara parametro como variável global
-                type_symbol_table_entry *existing_var = sym_find(param_name, &global_symbol_table_variables);
-                
-                if (existing_var != NULL) {
-                    // Se não existe, cadastra na tabela global
-                    sym_declare(param_name, param_type, 0, &global_symbol_table_variables);
-                }
-                sym_declare(param_name, param_type, 0, &global_symbol_table_variables);
-                // Adiciona ao array de params
+                // parametros nao sao declarados na TSG 
+                // serao registrados na TSL quando o corpo for processado
                 params[nparams].type = param_type;
                 strcpy(params[nparams].name, param_name);
                 nparams++;
                 if (lookahead->tag == COMMA) {
                     match(COMMA);
-                } else {
+                } else {                    
                     has_param = false;
                 }
             }
-            match(CLOSE_PAR);
+            match (CLOSE_PAR);
             match(SEMICOLON);
-            // Declara a função na TSF
+            // Declara a função na TSF (implemented=0, local_table=NULL, setados em sym_func_declare)
             sym_func_declare(name, return_type, params, nparams);
             return true;
         } else {
@@ -154,7 +148,7 @@ int statement (void) {
         match(READ);
         strcpy(lexeme_of_id, lookahead->lexema);
         ok1 = match(ID);
-        search_symbol = sym_find(lexeme_of_id, &global_symbol_table_variables);
+        search_symbol = sym_find_any(lexeme_of_id); // busca TSL depois TSG
         if (search_symbol != NULL) {
             type = search_symbol->type;
             gen_read(lexeme_of_id, type);
@@ -182,7 +176,7 @@ int statement (void) {
         } else if ( lookahead->tag == ID) {
             strcpy(lexeme_of_id, lookahead->lexema);
             match(ID);
-            search_symbol = sym_find(lexeme_of_id, &global_symbol_table_variables);
+            search_symbol = sym_find_any(lexeme_of_id); // busca TSL depois TSG
             if (search_symbol != NULL) {
                 type = search_symbol->type;
                 gen_write(lexeme_of_id, type);
@@ -245,7 +239,7 @@ int statement (void) {
         strcpy(lexeme_of_id, lookahead->lexema);
         
         // Busca o ID em ambas as tabelas para resolver ambiguidade
-        type_symbol_table_entry *search_symbol = sym_find(lexeme_of_id, &global_symbol_table_variables);
+        type_symbol_table_entry *search_symbol = sym_find_any(lexeme_of_id); // busca TSL depois TSG
         type_symbol_function *func = sym_func_find(lexeme_of_id);
         
         match(ID);
@@ -257,7 +251,7 @@ int statement (void) {
                 return false;
             }
             match(ASSIGN);
-            if (!E()) return false;
+            E();
             gen_assign(lexeme_of_id); 
             return match(SEMICOLON);
         } 
@@ -277,7 +271,8 @@ int statement (void) {
                         char param_name[MAX_CHAR];
                         strcpy(param_name, lookahead->lexema);
                         
-                        type_symbol_table_entry *var_param = sym_find(param_name, &global_symbol_table_variables);
+                        // busca argumento na TSL (se houver) e depois na TSG
+                        type_symbol_table_entry *var_param = sym_find_any(param_name);
                         
                         if (var_param == NULL) {
                             printf("[ERRO] Variavel parametro nao declarada: %s\n", param_name);
@@ -285,25 +280,21 @@ int statement (void) {
                         }
 
                         if (nargs < func->nparams) {
-                            // Verifica o Tipo
+                            // Verifica o Tipo (requisito 3)
                             if (var_param->type != func->params[nargs].type) {
-                                printf("[ERRO] Tipo incompativel no parametro %d de '%s'.\n", nargs+1, func->name);
-                                return false;
-                            }
-                            // Verifica o ID (Nome)
-                            if (strcmp(var_param->name, func->params[nargs].name) != 0) {
-                                printf("[ERRO] Nome do parametro %d incompativel. Esperado '%s', recebido '%s'.\n", 
-                                        nargs+1, func->params[nargs].name, var_param->name);
+                                printf("[ERRO SEMANTICO] Tipo incompativel no parametro %d de '%s'.\n", nargs+1, func->name);
                                 return false;
                             }
                         }
-                        
-                        match(ID);
-                    } else {
-                        printf("[ERRO] Esperado variavel como parametro da funcao.\n");
-                        return false;
-                    }
 
+                        gen_id_value(param_name); // Empilha o valor do argumento
+                        gen_func_arg(nargs); // Move o argumento para o registrador correspondente ($a0-$a3)
+                        match(ID);
+                    } else{
+                        // argumento pode ser expressao (numero, expressao aritmetica, chamada de funcao, etc)
+                        E();
+                        gen_func_arg(nargs); // Move o argumento para o registrador correspondente ($a0-$a3)
+                    }    
                     nargs++;
                     if (lookahead->tag == COMMA) match(COMMA);
                     else break;
@@ -317,7 +308,7 @@ int statement (void) {
                 return false;
             }
 
-            gen_call(func->label); 
+            gen_call(func->label, NULL); 
             return match(SEMICOLON);
         }
         else {
@@ -328,16 +319,45 @@ int statement (void) {
         return false;
     } else if (lookahead->tag == END){
         return false;
+    } else if (lookahead->tag == RETURN){
+        return false; // return sera consumido por func_implementation, que tem regras especificas para processar o comando return dentro do corpo da funcao
     } else {
         printf("[ERRO] Comando desconhecido.\nTag=%d; Lexema=%s\n",lookahead->tag, lookahead->lexema);
         return false;
     }
 }
 
+/**
+ * @brief processa uma declaracao de variavel local dentro do corpo de funcao (TSL)
+ * @return int true/false
+ */
+int local_declaration(){
+    int type = lookahead->tag;
+    if (type != INT && type != FLOAT && type != CHAR && type != STRING) {
+        return false;
+    }
+    match(type);
+    char name[MAX_CHAR];
+    strcpy(name, lookahead->lexema);
+    match(ID);
+    match(SEMICOLON);
+    // declara na TSL ativa (current_local_table)
+    sym_declare(name, type, 0, current_local_table);
+    return true;
+}
+
+/**
+ * @brief loop para processar implementacao de funcoes (corpo)
+ */
 void func_code(void){
     while (func_implementation());
 }
 
+/**
+ * @brief Regra de derivação para implementação de funções
+ * 
+ * @return int true/false
+ */
 int func_implementation(void){
     int type = lookahead->tag;
     if (type != INT && type != FLOAT && type != CHAR && type != STRING) {
@@ -388,18 +408,54 @@ int func_implementation(void){
             return false;
         }
     }
+    // requisito 1.2: cria tsl nova para esta funcao
+    // alocacao dinamica garante que chamadas recursivas tenham TSL propria
+    type_symbol_table_variables *new_tsl = sym_create_local_table();
+    func->local_table = new_tsl; // associa a TSL criada para a func
+
+    // salva contexto anterior e ativa nova TSL
+    type_symbol_table_variables *saved_tsl = current_local_table;
+    current_local_table = new_tsl;
+
+    // registra parametros como variaveis locais na TSL (requisito 1.2)
+    for (int i = 0; i < temp_nparams; i++) {
+        sym_declare(temp_params[i].name, temp_params[i].type, i, current_local_table);
+    }
+
+    // gera prologo padrao da funcao
+    gen_func_prolog(func->label); // label da funcao
+
     match(BEGIN);
-    gen_label(func->label); // Label da funcao
+
+    // declaracoes locais dentro da funcao (requisito 1.1 - TSL)
+    while (local_declaration());
+
     statements();
+    
+    // requisito 2: obriga return com verificacao de tipo
+    if (lookahead->tag != RETURN) {
+        printf("[ERRO] Funcao '%s' deve conter comando 'return'.\n", name);
+    } else {
+        match(RETURN);
+        E(); // avalia expressao de retorno
+        gen_return(); // pop rax
+        match(SEMICOLON);
+    }
     match(END);
     gen_func_epilog(); // ret
+
+    // marca funcao como implementada (requisito 3.4)
+    func->implemented = 1;
+
+    // restaura contexto anterior (TSL anterior)
+    current_local_table = saved_tsl;
+
     return true;  
 }
 
 /**
  * @brief Regra de derivação que analiza expressoes booleanas
  *        no padrao 'id op_rel expr'
- * 
  */
 int B() {
     int operator;
@@ -439,6 +495,7 @@ int boolOperator(int *operator) {
 /* Elaborada nas primeiras aulas */
 int E() {
     int b1, b2;
+    b2 = -1; // inicializa com valor invalido para evitar warnings
     b1 = T();
     if (b1) 
         b2 = ER();
@@ -550,7 +607,7 @@ int F() {
         int b1;
         char lexema[MAX_TOKEN];
         strcpy(lexema, lookahead->lexema);
-        if ( sym_find(lexema, &global_symbol_table_variables) == NULL ) {
+        if ( sym_find_any(lexema) == NULL ) {
             printf("[ERRO] Variavel nao declarada: %s\n", lexema);
             return false;
         }

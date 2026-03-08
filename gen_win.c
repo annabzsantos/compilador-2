@@ -159,6 +159,9 @@ void gen_write(char *lexeme_of_id, int type) {
     fprintf(output_file, "call printf\n");
 }
 
-void gen_call(char *label){
+void gen_call(char *label, char *result_var) {
     printf("call %s\n", label);
+    if (result_var != NULL) {
+        printf("mov %s, eax\n", result_var);
+    }
 }

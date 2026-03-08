@@ -48,7 +48,7 @@ void genMult() {
     fprintf(output_file, ";Multiplicacao\n");
     fprintf(output_file, "pop rax\n");
     fprintf(output_file, "pop rbx\n");
-    fprintf(output_file, "imult rax,rbx\n");
+    fprintf(output_file, "imul rax,rbx\n");
     fprintf(output_file, "push rax\n");
 }
 
@@ -94,8 +94,8 @@ void gen_preambule(void) {
     fprintf(output_file, ";UFMT-Compiladores\n");
     fprintf(output_file, ";Prof. Ivairton\n");
     fprintf(output_file, ";Procedimento para geracao do executavel apos compilacao (em Linux):\n");
-    fprintf(output_file, ";(1) compilacao do Assembly com nasm: $ nasm -f elf64 <nome_do_arquivo>\n");
-    fprintf(output_file, ";(2) likedicao: $ ld -m elf_x86_64 <nome_arquivo_objeto>\n\n");
+    fprintf(output_file, ";(1) compilacao do Assembly com nasm: $ nasm -f elf64 <nome_do_arquivo>.asm\n");
+    fprintf(output_file, ";(2) likedicao: $ ld -m elf_x86_64 <saida> <nome_arquivo_objeto>.o\n\n");
     fprintf(output_file, "extern printf\n");
     fprintf(output_file, "extern scanf\n");
 }
@@ -108,22 +108,6 @@ void gen_data_section(void) {
     
     fprintf(output_file, "\n\tsection .data\n");
     fprintf(output_file, "buffer_io db 0, 0\n"); // Buffer para leitura de input do usuario
-
-    // emite strings de formato fixo
-    //fprintf(output_file, "str0: db \"%%d\",13,10,0\n");
-    //fprintf(output_file, "str1: db \"%%s\",13,10,0\n");
-    //fprintf(output_file, "str2: db \"%%c\",13,10,0\n");
-    //fprintf(output_file, "str3: db \"%%lf\",13,10,0\n");
-    //fprintf(output_file, "\n");
-
-    // processa cada simbolo da tabela de strings
-    //n = symbol_table_string.n_strings;
-    //for (i = 0; i < n; i++) {
-    //    fprintf(output_file, "%s: db %s, 0\n", 
-    //        symbol_table_string.string[i].name,
-    //        symbol_table_string.string[i].value);
-    //}
-    //fprintf(output_file,"\n");
     
     // processa cada simbolo da tabela e gera um ponteiro para cada variavel na memoria
     n = global_symbol_table_variables.n_variables;
@@ -184,15 +168,12 @@ void gen_epilog_code(void) {
  * @brief Funcao que gera automaticamente um novo nome para um label
  * @param string name
  */
-void gen_label_name( char *name ) {
-    char str_name[MAX_CHAR];
+void gen_label_name(char *name ) {
+    static int nlabels = 0;
     char conv_value[16];
-    static int nlabels=0;
-
     sprintf(conv_value, "%d", nlabels);
-    strcpy(str_name, "label");
-    strcat(str_name, conv_value);
-    strcpy(name, str_name);
+    strcpy(name, "label");
+    strcat(name, conv_value);
     nlabels++;
 }
 
@@ -282,13 +263,6 @@ void gen_bool_label_name(char *name) {
  * @param lexeme_of_id nome do identificador
  */
 void gen_read(char *lexeme_of_id, int type) {
-    /*
-    //Codigo antigo, demanda estudo para ser usado com o liker GCC no Linux
-    fprintf(output_file, "mov rdi, fmtstr0\n");
-    fprintf(output_file, "mov rsi, %s\n", lexeme_of_id);
-    fprintf(output_file, "mov rax, 0\n");
-    fprintf(output_file, "call scanf\n");
-    */
     switch (type) {
         case INT:
             fprintf(output_file, "\n; --- le valor inteiro ---\n");
@@ -308,7 +282,7 @@ void gen_read(char *lexeme_of_id, int type) {
             fprintf(output_file, "\n;le valor float\n");
             fprintf(output_file, "mov edx,16\n");
             fprintf(output_file, "mov ecx,%s\n", lexeme_of_id);
-            fprintf(output_file, "mov ebx,1\n");
+            fprintf(output_file, "mov ebx,0\n");
             fprintf(output_file, "mov eax,3\n");
             fprintf(output_file, "int 0x80\n");
             break;
@@ -316,7 +290,7 @@ void gen_read(char *lexeme_of_id, int type) {
             fprintf(output_file, "\n;le valor char\n");
             fprintf(output_file, "mov edx,1\n");
             fprintf(output_file, "mov ecx,%s\n", lexeme_of_id);
-            fprintf(output_file, "mov ebx,1\n");
+            fprintf(output_file, "mov ebx,0\n");
             fprintf(output_file, "mov eax,3\n");
             fprintf(output_file, "int 0x80\n");
             break;
@@ -324,7 +298,7 @@ void gen_read(char *lexeme_of_id, int type) {
             fprintf(output_file, "\n;le valor string\n");
             fprintf(output_file, "mov edx,16\n");
             fprintf(output_file, "mov ecx,%s\n", lexeme_of_id);
-            fprintf(output_file, "mov ebx,1\n");
+            fprintf(output_file, "mov ebx,0\n");
             fprintf(output_file, "mov eax,3\n");
             fprintf(output_file, "int 0x80\n");
             break;
@@ -337,13 +311,6 @@ void gen_read(char *lexeme_of_id, int type) {
  * @param lexeme_of_id nome do identificador
  */
 void gen_write(char *lexeme_of_id, int type) {
-    /*
-    //Codigo antigo, demanda estudo para ser usado com o liker GCC no Linux
-    fprintf(output_file, "mov rdi, fmtstr0\n");
-    fprintf(output_file, "mov rsi, [rel %s]\n", lexeme_of_id);
-    fprintf(output_file, "mov rax, 0\n");
-    fprintf(output_file, "call printf\n");
-    */
     switch (type) {
         case INT:
             fprintf(output_file, "\n; --- escreve valor inteiro ---\n");
@@ -386,19 +353,66 @@ void gen_write(char *lexeme_of_id, int type) {
     }
 }
 
-void gen_call(char *label){
-    fprintf(output_file, ";Chamada de funcao\n");
-    fprintf(output_file, "jal %s\n", label);
+// funcoes mips
+/**
+ * @brief Passa argumento para chamada de funcao ($a0...$a3)
+ * @param arg_index indice do argumento (0 a 3)
+ */
+void gen_func_arg(int arg_index) {
+    const char *arg_regs[] = {"r8", "r9", "r10", "r11"}; // $a0 = r8, $a1 = r9, $a2 = r10, $a3 = r11
+    if (arg_index < 0 || arg_index >= MAX_PARAMS) {
+        printf("[ERRO] Indice de argumento invalido: %d\n", arg_index);
+        return;
+    }
+    fprintf(output_file, ";Passa argumento %d para chamada de funcao\n", arg_index+1);
+    fprintf(output_file, "pop rax\n");
+    fprintf(output_file, "mov %s, rax\n", arg_regs[arg_index]); // $a0 = r8, $a1 = r9, $a2 = r10, $a3 = r11
 }
 
 /**
- * @brief Funcao que gera codigo de retorno de funcao (ret)
- * 
+ * @brief Gera chamada de funcao (jal) e captura valor de retorno
+ * @param label label da funcao a ser chamada
+ * @param result_var nome da variavel onde o valor de retorno (pode ser NULL)
  */
 
+void gen_call(char *label, char *result_var) {
+    fprintf(output_file, ";Chamada de funcao\n");
+    fprintf(output_file, "call %s\n", label);
+    if (result_var != NULL) {
+        fprintf(output_file, ";Captura valor de retorno\n");
+        fprintf(output_file, "mov %s, eax\n", result_var);
+    }
+}
+
+/**
+ * @brief prologo padrao de funcao (empilha $ra, $fp, ajusta $sp)
+ * @param func_label label da funcao
+ */
+void gen_func_prolog(char *func_label){
+    fprintf(output_file, "\n;Prologo de funcao %s\n", func_label);
+    fprintf(output_file, "%s:\n", func_label);
+    fprintf(output_file, "push rbp\n"); // Salva o frame pointer anterior (sw $fp)
+    fprintf(output_file, "mov rbp, rsp\n"); // Estabelece o novo (move $fp, $sp)
+    fprintf(output_file, "sub rsp, 64\n"); // Reserva espaço para variáveis locais (addi $sp, $sp, -N)
+}
+
+/**
+ * @brief epilogo padrao de funcao (restaura $ra $fp, jr $ra)
+ * 
+ */
 void gen_func_epilog(void) {
-    fprintf(output_file, "\n;Retorna da funcao\n");
-    fprintf(output_file, "jr $ra\n");
+    fprintf(output_file, "\n;Epilogo da funcao\n");
+    fprintf(output_file, "mov rsp, rbp\n"); // Restaura o stack pointer (move $sp, $fp)
+    fprintf(output_file, "pop rbp\n"); // Restaura o frame pointer anterior (lw $fp, 0($sp))
+    fprintf(output_file, "ret\n"); // Retorna para o endereço salvo no stack (jr $ra)
+}
+
+/**
+ * @brief Gera comando return (move topo pilha para rax ($v0))
+ */
+void gen_return(void) {
+    fprintf(output_file, ";Comando return\n");
+    fprintf(output_file, "pop rax\n"); // Move o valor de retorno para rax ($v0)
 }
 
 /**
