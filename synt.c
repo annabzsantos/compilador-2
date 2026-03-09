@@ -449,6 +449,8 @@ int func_implementation(void){
     // gera prologo padrao da funcao
     gen_func_prolog(func->label); // label da funcao
 
+    match(BEGIN);
+    
     const char *arg_regs[] = {"r8d", "r9d", "r10d", "r11d"}; 
     for (int i = 0; i < temp_nparams && i < 4; i++) {
         fprintf(output_file, "mov dword [rbp - %d], %s\n", (i+1)*4, arg_regs[i]); // move argumento do registrador para a posição correta na pilha (TSL)

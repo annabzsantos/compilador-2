@@ -52,13 +52,13 @@ mov ecx,str2
 mov ebx,1
 mov eax,4
 int 0x80
-;Carrega valor de variavel
+;Carrega valor de variavel global
 mov eax, dword [x]
 push rax
 ;Passa argumento 1 para chamada de funcao
 pop rax
 mov r8, rax
-;Carrega valor de variavel
+;Carrega valor de variavel global
 mov eax, dword [y]
 push rax
 ;Passa argumento 2 para chamada de funcao
@@ -84,37 +84,8 @@ func_calcula:
 push rbp
 mov rbp, rsp
 sub rsp, 64
-;Carrega valor de variavel
-mov eax, dword [x]
-push rax
-;Carrega valor de variavel
-mov eax, dword [y]
-push rax
-;Adicao
-pop rax
-pop rbx
-add rax,rbx
-push rax
-;Atribuicao
-pop rax
-mov [x], eax
-
-;escreve valor string
-mov edx,16
-mov ecx,str4
-mov ebx,1
-mov eax,4
-int 0x80
-
-; --- escreve valor inteiro ---
-mov eax, dword [x]
-add eax, 48
-mov byte [buffer_io], al
-mov edx, 1
-mov ecx, buffer_io
-mov ebx, 1
-mov eax, 4
-int 0x80
+mov dword [rbp - 4], r8d
+mov dword [rbp - 8], r9d
 
 ;Epilogo da funcao
 mov rsp, rbp
@@ -129,4 +100,3 @@ str0: db "Informe o valor de X:"
 str1: db "\nInforme o valor de Y:"
 str2: db "\nChamando a funcao...\n"
 str3: db "\nDe volta ao programa principal!"
-str4: db "Resultado de X + Y dentro da funcao: "

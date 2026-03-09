@@ -82,6 +82,17 @@ mov rbp, rsp
 sub rsp, 64
 mov dword [rbp - 4], r8d
 mov dword [rbp - 8], r9d
+;Carrega valor de variavel local
+mov eax, dword [rbp - 4]
+push rax
+;Atribuicao para variavel 'r'
+pop rax
+ mov dword [rbp - 12], eax
+;Carrega valor de variavel local
+mov eax, dword [rbp - 12]
+push rax
+;Comando return
+pop rax
 
 ;Epilogo da funcao
 mov rsp, rbp
