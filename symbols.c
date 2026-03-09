@@ -67,28 +67,18 @@ type_symbol_table_entry *sym_find_any(char *s){
     if (existing != NULL) {
         return existing;
     }
-    
 
 	if (stv->n_variables < MAX_SYMBOLS) { //Verifica se eh possivel declarar mais variavel
 		int n_var;
         n_var = stv->n_variables;
 
-        strcpy(stv->variable[n_var].name, name);
         stv->variable[n_var].type = type;
-        stv->variable[n_var].is_global = (stv == &global_symbol_table_variables);
-
-        if(!stv->variable[n_var].is_global) {
-            /*REQUISITO 1.2: Para locais e parâmetros, calculamos o deslocamento na pilha.
-              Cada INT ocupa 4 bytes, então incrementamos o endereço em 4 para cada nova variável local declarada.
-            */
-            stv->variable[n_var].addr = (n_var+1) * 4; // O endereço é baseado na posição da variável na TSL, começando em 4 (deslocamento do primeiro local)
-        } else {
-            // Para globais, o endereço físico é resolvido pelo assembler usando o nome.
-            stv->variable[n_var].addr = 0;
-        }
+        stv->variable[n_var].addr = addr;
+        strcpy(stv->variable[n_var].name, name);
 
         stv->n_variables++;
-        return &(stv->variable[n_var]);   
+
+        return &(stv->variable[n_var]);   // CORRIGIDO
 	} else {
         printf("[ERRO] Limite de declaracao (quantidade) de variaveis atingido.\n");
         return NULL;
