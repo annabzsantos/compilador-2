@@ -37,17 +37,20 @@ int match(int token_tag) {
  * @brief Regra de derivacao inicial
  */
 void program (void) {
-    gen_preambule(); 
-    gen_preambule_code(); 
-    declarations(); 
-    
-    match(BEGIN);   
-    statements();   
-    match(END);     
-    
-    gen_epilog_code();  // Encerra o programa
-    func_code(); // Gera o codigo das funcoes
-    gen_data_section(); // Gera a secao de dados (variaveis globais e strings)
+    gen_preambule();         // cabecalho de comentarios
+    // Precisamos processar as declaracoes primeiro para popular as tabelas,
+    // depois emitir .data (com todas as variaveis/strings) e so entao .text
+    declarations();          // popula TSG e TSF (sem emitir codigo ainda)
+
+    gen_data_section();      // emite .data com todas as variaveis e strings
+    gen_preambule_code();    // emite .text / .globl main / main:
+
+    match(BEGIN);
+    statements();
+    match(END);
+
+    gen_epilog_code();       // syscall exit
+    func_code();             // corpos das funcoes
     printSTFunctions();
     sem_check_unimplemented_functions();
 
@@ -244,17 +247,70 @@ int statement (void) {
         
         match(ID);
         
-        // CASO 1: Atribuição (id = E;)
+        // CASO 1: Atribuição (id = E; ou id = func(...);)
         if (lookahead->tag == ASSIGN) {
             if (search_symbol == NULL) {
                 printf("[ERRO] Variavel nao declarada: %s\n", lexeme_of_id);
                 return false;
             }
             match(ASSIGN);
+
+            // Verifica se o RHS é uma chamada de função: id = func_name(args);
+            if (lookahead->tag == ID) {
+                char rhs_name[MAX_CHAR];
+                strcpy(rhs_name, lookahead->lexema);
+                type_symbol_function *rhs_func = sym_func_find(rhs_name);
+                if (rhs_func != NULL) {
+                    // RHS é uma chamada de função
+                    match(ID);
+                    match(OPEN_PAR);
+                    int nargs = 0;
+                    if (lookahead->tag != CLOSE_PAR) {
+                        do {
+                            if (lookahead->tag == ID) {
+                                char arg_name[MAX_CHAR];
+                                strcpy(arg_name, lookahead->lexema);
+                                type_symbol_table_entry *arg_sym = sym_find_any(arg_name);
+                                if (arg_sym == NULL) {
+                                    printf("[ERRO] Variavel parametro nao declarada: %s\n", arg_name);
+                                    return false;
+                                }
+                                if (nargs < rhs_func->nparams && arg_sym->type != rhs_func->params[nargs].type) {
+                                    printf("[ERRO SEMANTICO] Tipo incompativel no parametro %d de '%s'.\n", nargs+1, rhs_func->name);
+                                    return false;
+                                }
+                                gen_id_value(arg_name);
+                                match(ID);
+                            } else {
+                                E();
+                            }
+                            gen_func_arg(nargs);
+                            nargs++;
+                            if (lookahead->tag == COMMA) match(COMMA);
+                            else break;
+                        } while (1);
+                    }
+                    match(CLOSE_PAR);
+                    if (nargs != rhs_func->nparams) {
+                        printf("[ERRO] Numero de argumentos incorreto para '%s'. Esperado: %d, Recebido: %d\n",
+                               rhs_func->name, rhs_func->nparams, nargs);
+                        return false;
+                    }
+                    // Verifica compatibilidade de tipo entre retorno da funcao e variavel destino
+                    if (rhs_func->return_type != search_symbol->type) {
+                        printf("[ERRO SEMANTICO] Tipo de retorno de '%s' incompativel com variavel '%s'.\n",
+                               rhs_func->name, lexeme_of_id);
+                        return false;
+                    }
+                    gen_call(rhs_func->label, lexeme_of_id);
+                    return match(SEMICOLON);
+                }
+            }
+            // RHS é uma expressão aritmética comum
             E();
-            gen_assign(lexeme_of_id); 
+            gen_assign(lexeme_of_id);
             return match(SEMICOLON);
-        } 
+        }
         
         else if (lookahead->tag == OPEN_PAR) {
             if (func == NULL) {
@@ -426,14 +482,13 @@ int func_implementation(void){
     gen_func_prolog(func->label); // label da funcao
 
     match(BEGIN);
-<<<<<<< HEAD
     
-    const char *arg_regs[] = {"r8d", "r9d", "r10d", "r11d"}; 
-    for (int i = 0; i < temp_nparams && i < 4; i++) {
-        fprintf(output_file, "mov dword [rbp - %d], %s\n", (i+1)*4, arg_regs[i]); // move argumento do registrador para a posição correta na pilha (TSL)
+    // move os argumentos ($a0..$a3) para as posicoes locais na TSL
+    const char *arg_regs[] = {"$a0", "$a1", "$a2", "$a3"};
+    int i;
+    for (i = 0; i < temp_nparams && i < 4; i++) {
+        fprintf(output_file, "sw   %s, -%d($fp)\n", arg_regs[i], (i+1)*4);
     }
-=======
->>>>>>> origin/erro-calcula-begin
 
     // declaracoes locais dentro da funcao (requisito 1.1 - TSL)
     while (local_declaration());
