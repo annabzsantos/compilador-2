@@ -26,4 +26,4 @@ tst_lex.o: tst_lex.c
 	gcc -c -g tst_lex.c
 
 clean:
-	rm *.o compiler
+	rm -f *.o compiler
