@@ -37,17 +37,20 @@ int match(int token_tag) {
  * @brief Regra de derivacao inicial
  */
 void program (void) {
-    gen_preambule(); 
-    gen_preambule_code(); 
-    declarations(); 
-    
-    match(BEGIN);   
-    statements();   
-    match(END);     
-    
-    gen_epilog_code();  // Encerra o programa
-    func_code(); // Gera o codigo das funcoes
-    gen_data_section(); // Gera a secao de dados (variaveis globais e strings)
+    gen_preambule();         // cabecalho de comentarios
+    // Precisamos processar as declaracoes primeiro para popular as tabelas,
+    // depois emitir .data (com todas as variaveis/strings) e so entao .text
+    declarations();          // popula TSG e TSF (sem emitir codigo ainda)
+
+    gen_data_section();      // emite .data com todas as variaveis e strings
+    gen_preambule_code();    // emite .text / .globl main / main:
+
+    match(BEGIN);
+    statements();
+    match(END);
+
+    gen_epilog_code();       // syscall exit
+    func_code();             // corpos das funcoes
     printSTFunctions();
     sem_check_unimplemented_functions();
 
@@ -480,9 +483,11 @@ int func_implementation(void){
 
     match(BEGIN);
     
-    const char *arg_regs[] = {"r8d", "r9d", "r10d", "r11d"}; 
-    for (int i = 0; i < temp_nparams && i < 4; i++) {
-        fprintf(output_file, "mov dword [rbp - %d], %s\n", (i+1)*4, arg_regs[i]); // move argumento do registrador para a posição correta na pilha (TSL)
+    // move os argumentos ($a0..$a3) para as posicoes locais na TSL
+    const char *arg_regs[] = {"$a0", "$a1", "$a2", "$a3"};
+    int i;
+    for (i = 0; i < temp_nparams && i < 4; i++) {
+        fprintf(output_file, "sw   %s, -%d($fp)\n", arg_regs[i], (i+1)*4);
     }
 
     // declaracoes locais dentro da funcao (requisito 1.1 - TSL)

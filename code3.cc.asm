@@ -1,153 +1,151 @@
-;UFMT-Compiladores
-;Prof. Ivairton
-;Procedimento para geracao do executavel apos compilacao (em Linux):
-;(1) compilacao do Assembly com nasm: $ nasm -f elf64 <nome_do_arquivo>.asm
-;(2) likedicao: $ ld -m elf_x86_64 <saida> <nome_arquivo_objeto>.o
+# UFMT - Compiladores
+# Prof. Ivairton
+# Montagem: $ spim -file <arquivo>.asm
+#        ou: $ mars <arquivo>.asm
 
-extern printf
-extern scanf
+.data
+newline: .asciiz "\n"
+x: .word 0
+y: .word 0
+igual: .word 0
+diferente: .word 0
 
-	section .text
-	global main,_start
+.text
+.globl main
 main:
-_start:
 
-;escreve valor string
-mov edx,16
-mov ecx,str0
-mov ebx,1
-mov eax,4
-int 0x80
+# Escreve string 'str0'
+la   $a0, str0
+li   $v0, 4
+syscall
 
-; --- le valor inteiro ---
-mov edx, 2
-mov ecx, buffer_io
-mov ebx, 0
-mov eax, 3
-int 0x80
-movzx eax, byte [buffer_io]
-sub eax, 48
-mov dword [x], eax
+# Le inteiro -> 'x'
+li   $v0, 5
+syscall
+la   $t1, x
+sw   $v0, 0($t1)
 
-;escreve valor string
-mov edx,16
-mov ecx,str1
-mov ebx,1
-mov eax,4
-int 0x80
+# Escreve string 'str1'
+la   $a0, str1
+li   $v0, 4
+syscall
 
-; --- le valor inteiro ---
-mov edx, 2
-mov ecx, buffer_io
-mov ebx, 0
-mov eax, 3
-int 0x80
-movzx eax, byte [buffer_io]
-sub eax, 48
-mov dword [y], eax
-;Amarzenamento de numero
-mov rax,0
-push rax
-;Atribuicao para variavel 'igual'
-pop rax
-mov [igual], eax
-;Amarzenamento de numero
-mov rax,0
-push rax
-;Atribuicao para variavel 'diferente'
-pop rax
-mov [diferente], eax
-;Carrega valor de variavel global
-mov eax, dword [x]
-push rax
-;Carrega valor de variavel global
-mov eax, dword [y]
-push rax
-;Aplica operador booleano/exp.logica
-pop rbx
-pop rax
-mov rcx,1
-cmp eax,ebx
-je bool_label0
-mov rcx,0
+# Le inteiro -> 'y'
+li   $v0, 5
+syscall
+la   $t1, y
+sw   $v0, 0($t1)
+# Numero imediato 0
+li   $t0, 0
+addi $sp, $sp, -4
+sw   $t0, 0($sp)
+# Atribuicao -> 'igual'
+lw   $t0, 0($sp)
+addi $sp, $sp, 4
+la   $t1, igual
+sw   $t0, 0($t1)
+# Numero imediato 0
+li   $t0, 0
+addi $sp, $sp, -4
+sw   $t0, 0($sp)
+# Atribuicao -> 'diferente'
+lw   $t0, 0($sp)
+addi $sp, $sp, 4
+la   $t1, diferente
+sw   $t0, 0($t1)
+# Carrega global 'x'
+la   $t1, x
+lw   $t0, 0($t1)
+addi $sp, $sp, -4
+sw   $t0, 0($sp)
+# Carrega global 'y'
+la   $t1, y
+lw   $t0, 0($t1)
+addi $sp, $sp, -4
+sw   $t0, 0($sp)
+# Expressao booleana
+lw   $t1, 0($sp)
+addi $sp, $sp, 4
+lw   $t0, 0($sp)
+addi $sp, $sp, 4
+beq  $t0, $t1, bool_label0
+li   $t0, 0
+j    bool_end0
 bool_label0:
-mov rax, rcx
-push rax
-;jump condicional
-pop rax
-cmp rax, 0
-jz label0
-;Amarzenamento de numero
-mov rax,1
-push rax
-;Atribuicao para variavel 'igual'
-pop rax
-mov [igual], eax
-;jump incondicional
-jmp label1
+li   $t0, 1
+bool_end0:
+addi $sp, $sp, -4
+sw   $t0, 0($sp)
+# Salto condicional
+lw   $t0, 0($sp)
+addi $sp, $sp, 4
+beq  $t0, $zero, label0
+# Numero imediato 1
+li   $t0, 1
+addi $sp, $sp, -4
+sw   $t0, 0($sp)
+# Atribuicao -> 'igual'
+lw   $t0, 0($sp)
+addi $sp, $sp, 4
+la   $t1, igual
+sw   $t0, 0($t1)
+# Salto incondicional
+j    label1
 label0:
 label1:
-;Carrega valor de variavel global
-mov eax, dword [x]
-push rax
-;Carrega valor de variavel global
-mov eax, dword [y]
-push rax
-;Aplica operador booleano/exp.logica
-pop rbx
-pop rax
-mov rcx,1
-cmp eax,ebx
-jne bool_label1
-mov rcx,0
+# Carrega global 'x'
+la   $t1, x
+lw   $t0, 0($t1)
+addi $sp, $sp, -4
+sw   $t0, 0($sp)
+# Carrega global 'y'
+la   $t1, y
+lw   $t0, 0($t1)
+addi $sp, $sp, -4
+sw   $t0, 0($sp)
+# Expressao booleana
+lw   $t1, 0($sp)
+addi $sp, $sp, 4
+lw   $t0, 0($sp)
+addi $sp, $sp, 4
+bne  $t0, $t1, bool_label1
+li   $t0, 0
+j    bool_end1
 bool_label1:
-mov rax, rcx
-push rax
-;jump condicional
-pop rax
-cmp rax, 0
-jz label2
-;Amarzenamento de numero
-mov rax,1
-push rax
-;Atribuicao para variavel 'diferente'
-pop rax
-mov [diferente], eax
-;jump incondicional
-jmp label3
+li   $t0, 1
+bool_end1:
+addi $sp, $sp, -4
+sw   $t0, 0($sp)
+# Salto condicional
+lw   $t0, 0($sp)
+addi $sp, $sp, 4
+beq  $t0, $zero, label2
+# Numero imediato 1
+li   $t0, 1
+addi $sp, $sp, -4
+sw   $t0, 0($sp)
+# Atribuicao -> 'diferente'
+lw   $t0, 0($sp)
+addi $sp, $sp, 4
+la   $t1, diferente
+sw   $t0, 0($t1)
+# Salto incondicional
+j    label3
 label2:
 label3:
 
-; --- escreve valor inteiro ---
-mov eax, dword [igual]
-add eax, 48
-mov byte [buffer_io], al
-mov edx, 1
-mov ecx, buffer_io
-mov ebx, 1
-mov eax, 4
-int 0x80
+# Escreve inteiro 'igual'
+la   $t1, igual
+lw   $a0, 0($t1)
+li   $v0, 1
+syscall
 
-; --- escreve valor inteiro ---
-mov eax, dword [diferente]
-add eax, 48
-mov byte [buffer_io], al
-mov edx, 1
-mov ecx, buffer_io
-mov ebx, 1
-mov eax, 4
-int 0x80
+# Escreve inteiro 'diferente'
+la   $t1, diferente
+lw   $a0, 0($t1)
+li   $v0, 1
+syscall
 
-;encerra programa
-mov ebx,0
-mov eax,1
-int 0x80
-
-	section .data
-buffer_io db 0, 0
-x: dd 0
-y: dd 0
-igual: dd 0
-diferente: dd 0
-str0: db "Informe o valor de X:"
-str1: db "Informe o valor de Y:"
+# Encerra programa (syscall exit)
+li   $v0, 10
+syscall
