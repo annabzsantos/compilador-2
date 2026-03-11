@@ -86,6 +86,37 @@ mov rbp, rsp
 sub rsp, 64
 mov dword [rbp - 4], r8d
 mov dword [rbp - 8], r9d
+;Carrega valor de variavel local
+mov eax, dword [rbp - 4]
+push rax
+;Carrega valor de variavel local
+mov eax, dword [rbp - 8]
+push rax
+;Adicao
+pop rax
+pop rbx
+add rax,rbx
+push rax
+;Atribuicao para variavel 'x'
+pop rax
+ mov dword [rbp - 4], eax
+
+;escreve valor string
+mov edx,16
+mov ecx,str4
+mov ebx,1
+mov eax,4
+int 0x80
+
+; --- escreve valor inteiro ---
+mov eax, dword [rbp - 4]
+add eax, 48
+mov byte [buffer_io], al
+mov edx, 1
+mov ecx, buffer_io
+mov ebx, 1
+mov eax, 4
+int 0x80
 
 ;Epilogo da funcao
 mov rsp, rbp
@@ -100,3 +131,4 @@ str0: db "Informe o valor de X:"
 str1: db "\nInforme o valor de Y:"
 str2: db "\nChamando a funcao...\n"
 str3: db "\nDe volta ao programa principal!"
+str4: db "Resultado de X + Y dentro da funcao: "

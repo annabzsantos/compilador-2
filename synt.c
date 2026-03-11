@@ -138,7 +138,7 @@ void statements (void) {
  * @return int true/false
  */
 int statement (void) {
-    char var_destino[MAX_CHAR];
+    char lexeme_of_id[MAX_CHAR];
     type_symbol_table_entry *search_symbol;
     type_symbol_table_string_entry *gen_string;
     int ok1, ok2, type;
@@ -146,16 +146,16 @@ int statement (void) {
 
     if (lookahead->tag == READ) {
         match(READ);
-        strcpy(var_destino, lookahead->lexema);
+        strcpy(lexeme_of_id, lookahead->lexema);
         ok1 = match(ID);
-        search_symbol = sym_find_any(var_destino); // busca TSL depois TSG
+        search_symbol = sym_find_any(lexeme_of_id); // busca TSL depois TSG
         if (search_symbol != NULL) {
             type = search_symbol->type;
-            gen_read(var_destino, type);
+            gen_read(lexeme_of_id, type);
             ok2 = match(SEMICOLON);
             return ok1 && ok2;
         } else {
-            printf("[ERRO] Simbolo desconhecido (Variavel nao declarada): %s\n", var_destino);
+            printf("[ERRO] Simbolo desconhecido (Variavel nao declarada): %s\n", lexeme_of_id);
             return false;
         }
     } else if (lookahead->tag == WRITE) {
@@ -167,23 +167,23 @@ int statement (void) {
             match(STRING);
 
             if (gen_string != NULL) {
-                strcpy(var_destino, gen_string->name);
-                gen_write(var_destino, STRING);
+                strcpy(lexeme_of_id, gen_string->name);
+                gen_write(lexeme_of_id, STRING);
             }
 
             match(SEMICOLON);
             return true;
         } else if ( lookahead->tag == ID) {
-            strcpy(var_destino, lookahead->lexema);
+            strcpy(lexeme_of_id, lookahead->lexema);
             match(ID);
-            search_symbol = sym_find_any(var_destino); // busca TSL depois TSG
+            search_symbol = sym_find_any(lexeme_of_id); // busca TSL depois TSG
             if (search_symbol != NULL) {
                 type = search_symbol->type;
-                gen_write(var_destino, type);
+                gen_write(lexeme_of_id, type);
                 match(SEMICOLON);
                 return true;
             } else {
-                printf("[ERRO] Simbolo desconhecido (Variavel nao declarada): %s\n", var_destino);
+                printf("[ERRO] Simbolo desconhecido (Variavel nao declarada): %s\n", lexeme_of_id);
                 return false;
             }
         }
@@ -235,54 +235,83 @@ int statement (void) {
         return true;
 
     } else if (lookahead->tag == ID) {
-        char var_destino[MAX_CHAR];
-        strcpy(var_destino, lookahead->lexema);
+        char lexeme_of_id[MAX_CHAR];
+        strcpy(lexeme_of_id, lookahead->lexema);
         
         // Busca o ID em ambas as tabelas para resolver ambiguidade
-        type_symbol_table_entry *search_symbol = sym_find_any(var_destino); // busca TSL depois TSG
-        type_symbol_function *func = sym_func_find(var_destino);
+        type_symbol_table_entry *search_symbol = sym_find_any(lexeme_of_id); // busca TSL depois TSG
+        type_symbol_function *func = sym_func_find(lexeme_of_id);
         
         match(ID);
         
-        // CASO 1: Atribuição (id = E;)
+        // CASO 1: Atribuição (id = E; ou id = func(...);)
         if (lookahead->tag == ASSIGN) {
             if (search_symbol == NULL) {
-                printf("[ERRO] Variavel nao declarada: %s\n", var_destino);
+                printf("[ERRO] Variavel nao declarada: %s\n", lexeme_of_id);
                 return false;
             }
             match(ASSIGN);
 
-            type_symbol_function *func_call = sym_func_find(var_destino);
-            if (func_call != NULL) {
-                char func_name[MAX_CHAR];
-                strcpy(func_name, lookahead->lexema);
-                match(ID);
-                match(OPEN_PAR);
-                int nargs = 0;
-                if (lookahead->tag != CLOSE_PAR) {
-                    do {
-                        E(); // Processa argumento como expressao (pode ser numero, id, expressao aritmetica, chamada de funcao, etc)
-                        gen_func_arg(nargs); // Move o argumento para o registrador correspondente ($a0-$a3)
-                        nargs++;
-                        if (lookahead->tag == COMMA) match(COMMA);
-                        else break;
-                    } while (true);
+            // Verifica se o RHS é uma chamada de função: id = func_name(args);
+            if (lookahead->tag == ID) {
+                char rhs_name[MAX_CHAR];
+                strcpy(rhs_name, lookahead->lexema);
+                type_symbol_function *rhs_func = sym_func_find(rhs_name);
+                if (rhs_func != NULL) {
+                    // RHS é uma chamada de função
+                    match(ID);
+                    match(OPEN_PAR);
+                    int nargs = 0;
+                    if (lookahead->tag != CLOSE_PAR) {
+                        do {
+                            if (lookahead->tag == ID) {
+                                char arg_name[MAX_CHAR];
+                                strcpy(arg_name, lookahead->lexema);
+                                type_symbol_table_entry *arg_sym = sym_find_any(arg_name);
+                                if (arg_sym == NULL) {
+                                    printf("[ERRO] Variavel parametro nao declarada: %s\n", arg_name);
+                                    return false;
+                                }
+                                if (nargs < rhs_func->nparams && arg_sym->type != rhs_func->params[nargs].type) {
+                                    printf("[ERRO SEMANTICO] Tipo incompativel no parametro %d de '%s'.\n", nargs+1, rhs_func->name);
+                                    return false;
+                                }
+                                gen_id_value(arg_name);
+                                match(ID);
+                            } else {
+                                E();
+                            }
+                            gen_func_arg(nargs);
+                            nargs++;
+                            if (lookahead->tag == COMMA) match(COMMA);
+                            else break;
+                        } while (1);
+                    }
+                    match(CLOSE_PAR);
+                    if (nargs != rhs_func->nparams) {
+                        printf("[ERRO] Numero de argumentos incorreto para '%s'. Esperado: %d, Recebido: %d\n",
+                               rhs_func->name, rhs_func->nparams, nargs);
+                        return false;
+                    }
+                    // Verifica compatibilidade de tipo entre retorno da funcao e variavel destino
+                    if (rhs_func->return_type != search_symbol->type) {
+                        printf("[ERRO SEMANTICO] Tipo de retorno de '%s' incompativel com variavel '%s'.\n",
+                               rhs_func->name, lexeme_of_id);
+                        return false;
+                    }
+                    gen_call(rhs_func->label, lexeme_of_id);
+                    return match(SEMICOLON);
                 }
-                match(CLOSE_PAR);
-                match(SEMICOLON);
-
-                gen_call(func_call->label, var_destino); // Gera chamada de funcao e captura valor de retorno
-                return true;
-            } else {
-                E(); // Processa o lado direito da atribuicao como expressao (pode ser numero, id, expressao aritmetica, chamada de funcao, etc)
-                gen_assign(var_destino); // Gera codigo de atribuicao
-                return match(SEMICOLON);
             }
+            // RHS é uma expressão aritmética comum
+            E();
+            gen_assign(lexeme_of_id);
+            return match(SEMICOLON);
         }
         
         else if (lookahead->tag == OPEN_PAR) {
             if (func == NULL) {
-                printf("[ERRO] Funcao nao declarada ou prototipada: %s\n", var_destino);
+                printf("[ERRO] Funcao nao declarada ou prototipada: %s\n", lexeme_of_id);
                 return false;
             }
             match(OPEN_PAR);
@@ -328,7 +357,7 @@ int statement (void) {
 
             if (nargs != func->nparams) {
                 printf("[ERRO] Numero de argumentos incorreto para '%s'. Esperado: %d, Recebido: %d\n", 
-                        var_destino, func->nparams, nargs);
+                        lexeme_of_id, func->nparams, nargs);
                 return false;
             }
 
@@ -336,7 +365,7 @@ int statement (void) {
             return match(SEMICOLON);
         }
         else {
-            printf("[ERRO] Esperado '=' ou '(' apos o identificador '%s'\n", var_destino);
+            printf("[ERRO] Esperado '=' ou '(' apos o identificador '%s'\n", lexeme_of_id);
             return false;
         }
     } else if (lookahead->tag == ENDTOKEN) {

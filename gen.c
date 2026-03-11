@@ -273,6 +273,7 @@ void gen_bool_label_name(char *name) {
  * @param lexeme_of_id nome do identificador
  */
 void gen_read(char *lexeme_of_id, int type) {
+    type_symbol_table_entry *sym = sym_find_any(lexeme_of_id);
     switch (type) {
         case INT:
             fprintf(output_file, "\n; --- le valor inteiro ---\n");
@@ -286,7 +287,11 @@ void gen_read(char *lexeme_of_id, int type) {
             // 2. Converte ASCII para Número Real
             fprintf(output_file, "movzx eax, byte [buffer_io]\n"); // Pega o caractere digitado
             fprintf(output_file, "sub eax, 48\n"); // Transforma '5' (53) em 5
-            fprintf(output_file, "mov dword [%s], eax\n", lexeme_of_id); // Salva na variável real
+            if (sym != NULL && !sym->is_global) {
+                fprintf(output_file, "mov dword [rbp - %d], eax\n", sym->addr); // variavel local
+            } else {
+                fprintf(output_file, "mov dword [%s], eax\n", lexeme_of_id); // variavel global
+            }
             break;
         case FLOAT:
             fprintf(output_file, "\n;le valor float\n");
@@ -321,11 +326,16 @@ void gen_read(char *lexeme_of_id, int type) {
  * @param lexeme_of_id nome do identificador
  */
 void gen_write(char *lexeme_of_id, int type) {
+    type_symbol_table_entry *sym = sym_find_any(lexeme_of_id);
     switch (type) {
         case INT:
             fprintf(output_file, "\n; --- escreve valor inteiro ---\n");
             // 1. Converte Número Real para ASCII
-            fprintf(output_file, "mov eax, dword [%s]\n", lexeme_of_id); // Pega o número matemático
+            if (sym != NULL && !sym->is_global) {
+                fprintf(output_file, "mov eax, dword [rbp - %d]\n", sym->addr); // variavel local
+            } else {
+                fprintf(output_file, "mov eax, dword [%s]\n", lexeme_of_id); // variavel global
+            }
             fprintf(output_file, "add eax, 48\n"); // Transforma 5 em '5' (53)
             fprintf(output_file, "mov byte [buffer_io], al\n"); // Salva o texto no rascunho
 

@@ -178,6 +178,19 @@ type_token *getToken() {
             token ->value = 0; 
         }     
     }
+    //Verifica se NE -> '!='
+    else if (ch == '!') {
+        ch = fgetc(input_file);
+        if (ch == ASSIGN) {
+            token->tag = NE;
+            strcpy(token->lexema, "!=");
+            token->value = 0;
+        } else {
+            ungetc(ch, input_file);
+            token->tag = ERROR;
+            strcpy(token->lexema, "!");
+        }
+    }
     //Verifica se LT ou LE -> '<' ou '<='
     else if (ch == LT) {
         //Primeiro trata '<='
