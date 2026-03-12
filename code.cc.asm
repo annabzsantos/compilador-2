@@ -1,134 +1,123 @@
-;UFMT-Compiladores
-;Prof. Ivairton
-;Procedimento para geracao do executavel apos compilacao (em Linux):
-;(1) compilacao do Assembly com nasm: $ nasm -f elf64 <nome_do_arquivo>.asm
-;(2) likedicao: $ ld -m elf_x86_64 <saida> <nome_arquivo_objeto>.o
+# UFMT - Compiladores
+# Prof. Ivairton
+# Montagem: $ spim -file <arquivo>.asm
+#        ou: $ mars <arquivo>.asm
 
-extern printf
-extern scanf
+.data
+newline: .asciiz "\n"
+x: .word 0
+y: .word 0
 
-	section .text
-	global main,_start
+.text
+.globl main
 main:
-_start:
 
-;escreve valor string
-mov edx,16
-mov ecx,str0
-mov ebx,1
-mov eax,4
-int 0x80
+# Escreve string 'str0'
+la   $a0, str0
+li   $v0, 4
+syscall
 
-; --- le valor inteiro ---
-mov edx, 2
-mov ecx, buffer_io
-mov ebx, 0
-mov eax, 3
-int 0x80
-movzx eax, byte [buffer_io]
-sub eax, 48
-mov dword [x], eax
+# Le inteiro -> 'x'
+li   $v0, 5
+syscall
+la   $t1, x
+sw   $v0, 0($t1)
 
-;escreve valor string
-mov edx,16
-mov ecx,str1
-mov ebx,1
-mov eax,4
-int 0x80
+# Escreve string 'str1'
+la   $a0, str1
+li   $v0, 4
+syscall
 
-; --- le valor inteiro ---
-mov edx, 2
-mov ecx, buffer_io
-mov ebx, 0
-mov eax, 3
-int 0x80
-movzx eax, byte [buffer_io]
-sub eax, 48
-mov dword [y], eax
+# Le inteiro -> 'y'
+li   $v0, 5
+syscall
+la   $t1, y
+sw   $v0, 0($t1)
 
-;escreve valor string
-mov edx,16
-mov ecx,str2
-mov ebx,1
-mov eax,4
-int 0x80
-;Carrega valor de variavel global
-mov eax, dword [x]
-push rax
-;Passa argumento 1 para chamada de funcao
-pop rax
-mov r8, rax
-;Carrega valor de variavel global
-mov eax, dword [y]
-push rax
-;Passa argumento 2 para chamada de funcao
-pop rax
-mov r9, rax
-;Chamada de funcao
-call func_calcula
+# Escreve string 'str2'
+la   $a0, str2
+li   $v0, 4
+syscall
+# Carrega global 'x'
+la   $t1, x
+lw   $t0, 0($t1)
+addi $sp, $sp, -4
+sw   $t0, 0($sp)
+# Argumento 1
+lw   $t0, 0($sp)
+addi $sp, $sp, 4
+move $a0, $t0
+# Carrega global 'y'
+la   $t1, y
+lw   $t0, 0($t1)
+addi $sp, $sp, -4
+sw   $t0, 0($sp)
+# Argumento 2
+lw   $t0, 0($sp)
+addi $sp, $sp, 4
+move $a1, $t0
+# Chamada: jal func_calcula
+jal  func_calcula
 
-;escreve valor string
-mov edx,16
-mov ecx,str3
-mov ebx,1
-mov eax,4
-int 0x80
+# Escreve string 'str3'
+la   $a0, str3
+li   $v0, 4
+syscall
 
-;encerra programa
-mov ebx,0
-mov eax,1
-int 0x80
+# Encerra programa (syscall exit)
+li   $v0, 10
+syscall
 
-;Prologo de funcao func_calcula
+# Strings literais
+.data
+str0: .asciiz "Informe o valor de X:"
+str1: .asciiz "\nInforme o valor de Y:"
+str2: .asciiz "\nChamando a funcao...\n"
+str3: .asciiz "\nDe volta ao programa principal!"
+
+# Prologo de func_calcula
 func_calcula:
-push rbp
-mov rbp, rsp
-sub rsp, 64
-mov dword [rbp - 4], r8d
-mov dword [rbp - 8], r9d
-;Carrega valor de variavel local
-mov eax, dword [rbp - 4]
-push rax
-;Carrega valor de variavel local
-mov eax, dword [rbp - 8]
-push rax
-;Adicao
-pop rax
-pop rbx
-add rax,rbx
-push rax
-;Atribuicao para variavel 'x'
-pop rax
- mov dword [rbp - 4], eax
+addi $sp, $sp, -8
+sw   $ra, 4($sp)
+sw   $fp, 0($sp)
+move $fp, $sp
+addi $sp, $sp, -64
+sw   $a0, -4($fp)
+sw   $a1, -8($fp)
+# Carrega local 'x'
+lw   $t0, -4($fp)
+addi $sp, $sp, -4
+sw   $t0, 0($sp)
+# Carrega local 'y'
+lw   $t0, -8($fp)
+addi $sp, $sp, -4
+sw   $t0, 0($sp)
+# Adicao
+lw   $t1, 0($sp)
+addi $sp, $sp, 4
+lw   $t0, 0($sp)
+addi $sp, $sp, 4
+add  $t0, $t0, $t1
+addi $sp, $sp, -4
+sw   $t0, 0($sp)
+# Atribuicao -> 'x'
+lw   $t0, 0($sp)
+addi $sp, $sp, 4
+sw   $t0, -4($fp)
 
-;escreve valor string
-mov edx,16
-mov ecx,str4
-mov ebx,1
-mov eax,4
-int 0x80
+# Escreve string 'str4'
+la   $a0, str4
+li   $v0, 4
+syscall
 
-; --- escreve valor inteiro ---
-mov eax, dword [rbp - 4]
-add eax, 48
-mov byte [buffer_io], al
-mov edx, 1
-mov ecx, buffer_io
-mov ebx, 1
-mov eax, 4
-int 0x80
+# Escreve inteiro 'x'
+lw   $a0, -4($fp)
+li   $v0, 1
+syscall
 
-;Epilogo da funcao
-mov rsp, rbp
-pop rbp
-ret
-
-	section .data
-buffer_io db 0, 0
-x: dd 0
-y: dd 0
-str0: db "Informe o valor de X:"
-str1: db "\nInforme o valor de Y:"
-str2: db "\nChamando a funcao...\n"
-str3: db "\nDe volta ao programa principal!"
-str4: db "Resultado de X + Y dentro da funcao: "
+# Epilogo da funcao
+move $sp, $fp
+lw   $fp, 0($sp)
+lw   $ra, 4($sp)
+addi $sp, $sp, 8
+jr   $ra

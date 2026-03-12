@@ -74,6 +74,7 @@ type_symbol_table_entry *sym_find_any(char *s){
 
         stv->variable[n_var].type = type;
         stv->variable[n_var].addr = addr;
+        stv->variable[n_var].is_global = (stv == &global_symbol_table_variables);
         strcpy(stv->variable[n_var].name, name);
 
         stv->n_variables++;

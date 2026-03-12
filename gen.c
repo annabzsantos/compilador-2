@@ -26,11 +26,19 @@ FILE *output_file;
  * Helpers internos: push/pop da pilha de expressoes via $sp
  * --------------------------------------------------------------- */
 
+/**
+ * @brief Empilha um valor em um registrador na pilha
+ * @param reg Registrador a ser empilhado
+ */
 static void mips_push(const char *reg) {
     fprintf(output_file, "addi $sp, $sp, -4\n");
     fprintf(output_file, "sw   %s, 0($sp)\n", reg);
 }
 
+/**
+ * @brief Desempilha um valor da pilha para um registrador
+ * @param reg Registrador onde o valor desempilhado sera armazenado
+ */
 static void mips_pop(const char *reg) {
     fprintf(output_file, "lw   %s, 0($sp)\n", reg);
     fprintf(output_file, "addi $sp, $sp, 4\n");
@@ -39,7 +47,10 @@ static void mips_pop(const char *reg) {
 /* ---------------------------------------------------------------
  * Aritmetica
  * --------------------------------------------------------------- */
-
+/**
+ * @brief Geracao de codigo para operacao de adicao
+ * 
+ */
 void genAdd() {
     fprintf(output_file, "# Adicao\n");
     mips_pop("$t1");
@@ -48,6 +59,9 @@ void genAdd() {
     mips_push("$t0");
 }
 
+/**
+ * @brief Geracao de codigo para operacao de subtracao
+ */
 void genSub() {
     fprintf(output_file, "# Subtracao\n");
     mips_pop("$t1");
@@ -56,6 +70,9 @@ void genSub() {
     mips_push("$t0");
 }
 
+/**
+ * @brief Geracao de codigo para operacao de multiplicacao
+ */
 void genMult() {
     fprintf(output_file, "# Multiplicacao\n");
     mips_pop("$t1");
@@ -64,6 +81,9 @@ void genMult() {
     mips_push("$t0");
 }
 
+/**
+ * @brief Geracao de codigo para operacao de divisao
+ */
 void genDiv() {
     fprintf(output_file, "# Divisao\n");
     mips_pop("$t1");
@@ -73,6 +93,9 @@ void genDiv() {
     mips_push("$t0");
 }
 
+/**
+ * @brief Geracao de codigo para numero imediato
+ */
 void genNum(char num_string[MAX_TOKEN]) {
     fprintf(output_file, "# Numero imediato %s\n", num_string);
     fprintf(output_file, "li   $t0, %s\n", num_string);
@@ -83,6 +106,10 @@ void genNum(char num_string[MAX_TOKEN]) {
  * Atribuicao
  * --------------------------------------------------------------- */
 
+ /**
+  * @brief Geracao de codigo para atribuicao de expressao a variavel
+  * @param var_name nome da variavel a receber o valor da expressao
+  */
 void gen_assign(char *var_name) {
     type_symbol_table_entry *sym = sym_find_any(var_name);
     if (sym == NULL) {
@@ -102,6 +129,10 @@ void gen_assign(char *var_name) {
  * Estrutura do programa
  * --------------------------------------------------------------- */
 
+ /**
+  * @brief Geracao do preambulo do programa (comentarios, etc)
+  * 
+  */
 void gen_preambule(void) {
     fprintf(output_file, "# UFMT - Compiladores\n");
     fprintf(output_file, "# Prof. Ivairton\n");
@@ -110,6 +141,9 @@ void gen_preambule(void) {
     /* Nao abre .data aqui - sera feito por gen_data_section antes do .text */
 }
 
+/**
+ * @brief Emite a secao .data com as variaveis globais (declaradas no codigo)
+ */
 void gen_data_section(void) {
     int i, n;
 
@@ -133,8 +167,9 @@ void gen_data_section(void) {
     }
 }
 
-/* Emite strings literais em secao .data separada ao final do arquivo.
-   Chamada apos func_code() em program(), quando todas as strings ja foram coletadas. */
+/**
+ * @brief Emite a secao .data com as strings literais descobertas durante parsing
+ */
 void gen_string_section(void) {
     int i, n;
     n = symbol_table_string.n_strings;
@@ -148,12 +183,18 @@ void gen_string_section(void) {
     }
 }
 
+/**
+ * @brief Emite o preambulo da secao de codigo (.text, rotulo main, etc)
+ */
 void gen_preambule_code(void) {
     fprintf(output_file, "\n.text\n");
     fprintf(output_file, ".globl main\n");
     fprintf(output_file, "main:\n");
 }
 
+/**
+ * @brief Emite o codigo de encerramento do programa (syscall exit)
+ */
 void gen_epilog_code(void) {
     fprintf(output_file, "\n# Encerra programa (syscall exit)\n");
     fprintf(output_file, "li   $v0, 10\n");
@@ -164,21 +205,37 @@ void gen_epilog_code(void) {
  * Labels e saltos
  * --------------------------------------------------------------- */
 
+ /**
+  * @brief Geracao de nome unico para rotulos (labels) de controle de fluxo
+  * @param name buffer onde o nome do rotulo sera armazenado
+  */
 void gen_label_name(char *name) {
     static int nlabels = 0;
     sprintf(name, "label%d", nlabels++);
 }
 
+/**
+ * @brief Emite um rotulo (label) no codigo de saida
+ * @param label nome do rotulo a ser emitido
+ */
 void gen_label(char *label) {
     fprintf(output_file, "%s:\n", label);
 }
 
+/**
+ * @brief Emite um salto condicional no codigo de saida
+ * @param label nome do rotulo para o qual o salto sera feito
+ */
 void gen_cond_jump(char *label) {
     fprintf(output_file, "# Salto condicional\n");
     mips_pop("$t0");
     fprintf(output_file, "beq  $t0, $zero, %s\n", label);
 }
 
+/**
+ * @brief Emite um salto incondicional no codigo de saida
+ * @param label nome do rotulo para o qual o salto sera feito
+ */
 void gen_incond_jump(char *label) {
     fprintf(output_file, "# Salto incondicional\n");
     fprintf(output_file, "j    %s\n", label);
@@ -188,11 +245,19 @@ void gen_incond_jump(char *label) {
  * Expressao booleana
  * --------------------------------------------------------------- */
 
+/**
+ * @brief Geracao de nome unico para rotulos (labels) de controle de fluxo em expressoes booleanas
+ * @param name buffer onde o nome do rotulo sera armazenado
+ */
 void gen_bool_label_name(char *name) {
     static int nbool_labels = 0;
     sprintf(name, "bool_label%d", nbool_labels++);
 }
 
+/**
+ * @brief Geracao de codigo para expressao booleana
+ * @param oper operador relacional da expressao booleana (EQUAL, NE, LT, GT, LE, GE)
+ */
 void gen_bool(int oper) {
     char label_true[MAX_CHAR];
     char label_end[MAX_CHAR];
@@ -249,6 +314,11 @@ void gen_bool(int oper) {
  *   11 = print_char     12 = read_char
  * --------------------------------------------------------------- */
 
+/**
+  * @brief Gera o codigo para leitura de valores do usuario
+  * @param lexeme_of_id lexema do identificador
+  * @param type tipo do valor a ser lido
+  */
 void gen_read(char *lexeme_of_id, int type) {
     type_symbol_table_entry *sym = sym_find_any(lexeme_of_id);
     switch (type) {
@@ -292,6 +362,11 @@ void gen_read(char *lexeme_of_id, int type) {
     }
 }
 
+/**
+ * @brief Gera o codigo para escrita de valores na saida
+ * @param lexeme_of_id lexema do identificador
+ * @param type tipo do valor a ser escrito
+ */
 void gen_write(char *lexeme_of_id, int type) {
     type_symbol_table_entry *sym = sym_find_any(lexeme_of_id);
     switch (type) {
@@ -335,6 +410,10 @@ void gen_write(char *lexeme_of_id, int type) {
  * Funcoes MIPS
  * --------------------------------------------------------------- */
 
+/**
+ * @brief Geracao de codigo para passagem de argumento de funcao
+ * @param arg_index indice do argumento (0 para primeiro argumento, 1 para segundo, etc)
+ */
 void gen_func_arg(int arg_index) {
     const char *arg_regs[] = {"$a0", "$a1", "$a2", "$a3"};
     if (arg_index < 0 || arg_index >= MAX_PARAMS) {
@@ -346,6 +425,11 @@ void gen_func_arg(int arg_index) {
     fprintf(output_file, "move %s, $t0\n", arg_regs[arg_index]);
 }
 
+/**
+ * @brief Geracao de codigo para chamada de funcao
+ * @param label nome do rotulo da funcao a ser chamada
+ * @param result_var nome da variavel onde o valor de retorno sera armazenado (pode ser NULL se o valor de retorno nao for utilizado)
+ */
 void gen_call(char *label, char *result_var) {
     fprintf(output_file, "# Chamada: jal %s\n", label);
     fprintf(output_file, "jal  %s\n", label);
@@ -364,6 +448,10 @@ void gen_call(char *label, char *result_var) {
     }
 }
 
+/**
+ * @brief Geracao de prologo padrao para funcao (salva contexto, aloca espaco para variaveis locais, etc)
+ * @param func_label nome do rotulo da funcao para a qual o prologo esta sendo gerado 
+ */
 void gen_func_prolog(char *func_label) {
     fprintf(output_file, "\n# Prologo de %s\n", func_label);
     fprintf(output_file, "%s:\n", func_label);

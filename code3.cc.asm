@@ -149,3 +149,8 @@ syscall
 # Encerra programa (syscall exit)
 li   $v0, 10
 syscall
+
+# Strings literais
+.data
+str0: .asciiz "Informe o valor de X:"
+str1: .asciiz "Informe o valor de Y:"

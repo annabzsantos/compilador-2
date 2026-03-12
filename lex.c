@@ -54,6 +54,14 @@ void initLex(char input_file_name[]) {
  * @brief Analisa o proximo comando no código de entrada e retorna estrutura de
  * dados com Token correspondente (ponteiro).
  * 
+ * @concept: O processo de analise lexico consiste em ler o código de entrada caracter por
+ * caracter, reconhecendo padrões (tokens) e retornando uma estrutura de dados com informacoes 
+ * sobre o token reconhecido (tag, lexema, valor). O processo de reconhecimento de tokens inclui 
+ * a identificacao de palavras reservadas, identificadores, numeros, operadores e simbolos de pontuacao. 
+ * O processo de analise lexico tambem deve ignorar espacos em branco, tabulacoes e quebras de linha. 
+ * O processo de analise lexico deve ser capaz de lidar com erros lexicos, como caracteres invalidos ou 
+ * tokens malformados, e retornar um token de erro apropriado. 
+ * 
  * @return type_token* 
  */
 type_token *getToken() {
@@ -207,7 +215,7 @@ type_token *getToken() {
         }
     }
 
-    //TODO: implemente para GT e GE
+    //Verifica se GT ou GE -> '>' ou '>='
     else if (ch == GT) {
         //Primeiro trata '>='
         ch = fgetc(input_file);

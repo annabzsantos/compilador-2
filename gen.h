@@ -33,6 +33,7 @@ void gen_preambule(void);
 void gen_data_section(void);
 void gen_preambule_code(void);
 void gen_epilog_code(void);
+void gen_string_section(void);
 
 // labels e saltos
 void gen_label_name(char*);

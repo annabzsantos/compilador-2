@@ -50,6 +50,7 @@ void program (void) {
     match(END);
 
     gen_epilog_code();       // syscall exit
+    gen_string_section();     // emite rotulos para strings literais
     func_code();             // corpos das funcoes
     printSTFunctions();
     sem_check_unimplemented_functions();
@@ -398,7 +399,8 @@ int local_declaration(){
     match(ID);
     match(SEMICOLON);
     // declara na TSL ativa (current_local_table)
-    sym_declare(name, type, 0, current_local_table);
+    int next_offset = (current_local_table->n_variables + 1) * 4;
+    sym_declare(name, type, next_offset, current_local_table);
     return true;
 }
 
@@ -475,7 +477,7 @@ int func_implementation(void){
 
     // registra parametros como variaveis locais na TSL (requisito 1.2)
     for (int i = 0; i < temp_nparams; i++) {
-        sym_declare(temp_params[i].name, temp_params[i].type, i, current_local_table);
+        sym_declare(temp_params[i].name, temp_params[i].type, (i+1)*4, current_local_table);
     }
 
     // gera prologo padrao da funcao
