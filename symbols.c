@@ -40,6 +40,7 @@ type_symbol_table_entry *sym_find(char *s, type_symbol_table_variables *stv) {
  * @param s nome do simbolo
  * @return type_symbol_table_entry* 
  */
+// requisito 1.3: shadowing
 type_symbol_table_entry *sym_find_any(char *s){
     type_symbol_table_entry *found = NULL;
     // busca na TSL ativa primeiro (shadowing: local sobrescreve global)
@@ -252,6 +253,7 @@ void sym_free_local_table(type_symbol_table_variables *tsl) {
 /**
  * @brief verifica se ha funcoes declaradas mas nao implementadas
  */
+// requisito 3.4: verifica funcoes declaradas mas nao implementadas
 void sem_check_unimplemented_functions() {
     int i;
     for (i = 0; i < symfuncspos; i++) {

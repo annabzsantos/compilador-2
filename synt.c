@@ -13,7 +13,7 @@
 
 // Variaveis globais
 type_token *lookahead;
-extern type_symbol_table_variables global_symbol_table_variables;
+extern type_symbol_table_variables global_symbol_table_variables; 
 extern type_symbol_table_string symbol_table_string;
 extern char output_file_name[MAX_CHAR];
 extern FILE *output_file;
@@ -53,7 +53,7 @@ void program (void) {
     gen_string_section();     // emite rotulos para strings literais
     func_code();             // corpos das funcoes
     printSTFunctions();
-    sem_check_unimplemented_functions();
+    sem_check_unimplemented_functions(); // requisito 3.4: verifica funcoes declaradas mas nao implementadas
 
 }
 
@@ -138,6 +138,13 @@ void statements (void) {
 
 /**
  * @brief Regra de derivacao que processa os comandos
+ * 
+ * @concept: O processo de analise sintatica consiste em reconhecer a estrutura gramatical do codigo de entrada, 
+ * verificando se a sequencia de tokens produzida pelo analisador lexico corresponde a uma derivacao valida da 
+ * gramatica da linguagem. O processo de analise sintatica deve ser capaz de lidar com erros sintaticos, 
+ * como tokens inesperados ou estruturas malformadas, e fornecer mensagens de erro claras e informativas para o usuario.
+ * O processo de analise sintatica pode ser implementado usando tecnicas como recursao, tabelas de parsing ou automatos de pilha, 
+ * dependendo da complexidade da gramatica e dos requisitos do projeto.
  * 
  * @return int true/false
  */
@@ -276,6 +283,7 @@ int statement (void) {
                                     printf("[ERRO] Variavel parametro nao declarada: %s\n", arg_name);
                                     return false;
                                 }
+                                // requisito 3.3: verifica compatibilidade de tipo entre argumentos e parametros
                                 if (nargs < rhs_func->nparams && arg_sym->type != rhs_func->params[nargs].type) {
                                     printf("[ERRO SEMANTICO] Tipo incompativel no parametro %d de '%s'.\n", nargs+1, rhs_func->name);
                                     return false;
@@ -297,7 +305,7 @@ int statement (void) {
                                rhs_func->name, rhs_func->nparams, nargs);
                         return false;
                     }
-                    // Verifica compatibilidade de tipo entre retorno da funcao e variavel destino
+                    // requisito 3.2: verifica compatibilidade de tipo entre retorno da funcao e variavel destino
                     if (rhs_func->return_type != search_symbol->type) {
                         printf("[ERRO SEMANTICO] Tipo de retorno de '%s' incompativel com variavel '%s'.\n",
                                rhs_func->name, lexeme_of_id);
@@ -503,7 +511,7 @@ int func_implementation(void){
     } else {
         match(RETURN);
         E(); // avalia expressao de retorno
-        gen_return(); // pop rax
+        gen_return(); // move resultado para $v0
         match(SEMICOLON);
     }
     match(END);
